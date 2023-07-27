@@ -1,0 +1,11 @@
+<sly data-sly-use.jsonModel="com.adobe.aem.guides.core.models.JSONExporterModel">
+
+    <p>Name: ${jsonModel.name}</p>
+    <p>Age: ${jsonModel.age}</p>
+    <p>About: ${jsonModel.about}</p>
+
+    <sly data-sly-test="${jsonModel.dateOfBirth}">
+        <p>Date of Birth: ${jsonModel.dateOfBirth}</p>
+    </sly>
+
+</sly>
