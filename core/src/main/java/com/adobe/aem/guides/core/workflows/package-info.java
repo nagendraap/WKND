@@ -14,6 +14,6 @@
  *  limitations under the License.
  */
 @Version("1.0")
-package com.adobe.aem.guides.core.workflow;
+package com.adobe.aem.guides.core.workflows;
 
 import org.osgi.annotation.versioning.Version;
