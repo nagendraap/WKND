@@ -2,6 +2,10 @@ package com.adobe.aem.guides.core.workflows;
 
 import com.adobe.granite.workflow.WorkflowException;
 import com.adobe.granite.workflow.WorkflowSession;
+import com.adobe.granite.workflow.exec.WorkItem;
+import com.adobe.granite.workflow.exec.WorkflowData;
+import com.adobe.granite.workflow.exec.WorkflowProcess;
+import com.adobe.granite.workflow.metadata.MetaDataMap;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.sling.api.resource.Resource;
 import org.apache.sling.api.resource.ResourceResolver;
@@ -9,31 +13,25 @@ import org.apache.sling.api.resource.ResourceResolverFactory;
 import org.osgi.framework.Constants;
 import org.osgi.service.component.annotations.Component;
 import org.osgi.service.component.annotations.Reference;
-import com.adobe.granite.workflow.exec.WorkItem;
-import com.adobe.granite.workflow.exec.WorkflowData;
-import com.adobe.granite.workflow.exec.WorkflowProcess;
-import com.adobe.granite.workflow.metadata.MetaDataMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.jcr.Node;
 import javax.jcr.Session;
-import javax.jcr.Value;
 import java.util.HashMap;
 import java.util.Map;
 
-
-@Component(property = {
+@Component(service = WorkflowProcess.class, property = {
         Constants.SERVICE_DESCRIPTION + "=Custom Workflow Process Step for WKND Project to update/add filename property",
         Constants.SERVICE_VENDOR + "=Adobe Systems",
         "process.label" + "=WKND Asset Metadata Filename Property Update Process"
 })
 public class WKNDCustomAssetMetadataProcess implements WorkflowProcess {
 
+    private static final Logger LOGGER = LoggerFactory.getLogger(WKNDCustomAssetMetadataProcess.class);
+
     @Reference
     private ResourceResolverFactory resourceResolverFactory;
-
-    private static final Logger LOGGER = LoggerFactory.getLogger(WKNDCustomAssetMetadataProcess.class);
 
     @Override
     public void execute(WorkItem workItem, WorkflowSession workflowSession, MetaDataMap metaDataMap)
@@ -51,11 +49,11 @@ public class WKNDCustomAssetMetadataProcess implements WorkflowProcess {
                     LOGGER.info("Asset Path: {}", assetPath);
                     LOGGER.info("Metadata Node Path: {}", metadataPath);
 
-                    // Get the filename without extension and with proper formatting
-                    String formattedFilename = getProcessedTitle(assetPath);
+                    // Get the filename without extension
+                    String filename = getProcessedTitle(assetPath);
 
-                    // Add the formattedFilename as a property to the metadata node
-                    addFormattedFilenamePropertyToMetadata(metadataPath, workflowSession.adaptTo(Session.class), formattedFilename);
+                    // Add the filename as properties to the metadata node
+                    addFilenameToMetadata(metadataPath, workflowSession.adaptTo(Session.class), filename);
                 } else {
                     LOGGER.warn("Metadata not found for Asset Path: {}", assetPath);
                 }
@@ -66,21 +64,23 @@ public class WKNDCustomAssetMetadataProcess implements WorkflowProcess {
         }
     }
 
-
-    private void addFormattedFilenamePropertyToMetadata(String metadataPath, Session session, String formattedFilename) {
+    private void addFilenameToMetadata(String metadataPath, Session session, String filename) {
         try {
             Node metadataNode = session.getNode(metadataPath);
 
-            // Add the formattedFilename as a custom property to the metadata node
-            metadataNode.setProperty("formattedFilename", formattedFilename);
+            // Add the filename as the new dc:title property
+            metadataNode.setProperty("dc:title", filename);
+            LOGGER.info("DC Title property value is: {}", filename);
+
+            // Set the filename as the jcr:title property of the metadata node
+            metadataNode.setProperty("jcr:title", filename);
+            LOGGER.info("JCR Title property value is: {}", filename);
 
             // Save the changes to the session
             session.save();
-            LOGGER.info("Formatted Filename property added to metadata node: {}", metadataPath);
-            LOGGER.info("Formatted Filename property added is: {}", formattedFilename);
-
+            LOGGER.info("Properties updated in metadata node: {}", metadataPath);
         } catch (Exception e) {
-            LOGGER.error("Error adding Formatted Filename property to metadata node: {}", metadataPath, e);
+            LOGGER.error("Error updating dc:title property in metadata node: {}", metadataPath, e);
         }
     }
 
@@ -101,18 +101,7 @@ public class WKNDCustomAssetMetadataProcess implements WorkflowProcess {
 
     private String getProcessedTitle(String assetPath) {
         // Extract the filename from the assetPath and remove the extension
-        String filename = assetPath.substring(assetPath.lastIndexOf('/') + 1);
-        String filenameWithoutExtension = filename.substring(0, filename.lastIndexOf('.'));
-
-        // Split the filename by hyphens and capitalize each word
-        String[] parts = filenameWithoutExtension.split("-");
-        StringBuilder formattedFilename = new StringBuilder();
-        for (String part : parts) {
-            formattedFilename.append(StringUtils.capitalize(part)).append(" ");
-        }
-        formattedFilename.deleteCharAt(formattedFilename.length() - 1); // Remove the last space
-
-        return formattedFilename.toString();
+        return assetPath.substring(assetPath.lastIndexOf('/') + 1);
     }
 
     private Map<String, Object> getServiceUserMap() {
